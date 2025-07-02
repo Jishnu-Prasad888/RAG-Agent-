@@ -4,18 +4,22 @@ from langchain.schema.document import Document
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 from langchain.prompts import ChatPromptTemplate
-from langchain_ollama import OllamaLLM  # Updated import
-
+from langchain_ollama import OllamaLLM 
+import langchain_core
+import chromadb
 import os
 import shutil
 
 # Disable ChromaDB telemetry to avoid errors
-os.environ["ANONYMIZED_TELEMETRY"] = "False"
-os.environ["CHROMA_DB_TELEMETRY"] = "False"
-import chromadb
-chromadb.config.Settings(anonymized_telemetry=False)
 os.environ["LANGCHAIN_API_KEY"] = ""
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+os.environ["LANGCHAIN_ENDPOINT"] = ""
+os.environ["LANGCHAIN_PROJECT"] = ""
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["LANGCHAIN_TELEMETRY"] = "False"
+os.environ["CHROMA_DB_TELEMETRY"] = "False"
 
+chromadb.configure(anonymized_telemetry=False)
 PDF_DIRECTORY = "data/"
 CHROMA_PATH = "CHROMA_DB"
 PROMPT_TEMPLATE = """
@@ -27,9 +31,11 @@ Answer the question based only on the following context
 
 Answer the question based on the above context : {question}
 
-If the context is not sufficient then answer only with "Not Sufficient Information"
+If the context is not sufficient then asnwer only with "Not Sufficient Information"
 """
 
+def no_telemetry(*args, **kwargs):
+    return
 
 def load_docs_pdf(directory):
     pdf_loader = PyPDFDirectoryLoader(directory)
@@ -46,11 +52,12 @@ def split_docs(documents: list[Document]):
 
 def get_embedding_function():
     embeddings = OllamaEmbeddings(
-        model="nomic-embed-text"
+        model= "nomic-embed-text"
     )
     return embeddings
 
 def generate_uids(chunks):
+    
     last_page_id = None
     current_chunk_index = 0
     
@@ -60,7 +67,7 @@ def generate_uids(chunks):
         current_page_id = f"{source}:{page}"
         
         if current_page_id == last_page_id:
-            current_chunk_index += 1
+            current_chunk_index +=1
         else:
             current_chunk_index = 0
             
@@ -71,17 +78,17 @@ def generate_uids(chunks):
     
     return chunks
 
-def add_to_chroma(chunks: list[Document]):
+def add_to_chroma(chunks : list[Document]):
     db = Chroma(
         persist_directory=CHROMA_PATH,
-        embedding_function=get_embedding_function()
+        embedding_function= get_embedding_function()
     )
     
     chunks_with_ids = generate_uids(chunks)
     
-    existing_items = db.get(include=[])
-    existing_ids = set(existing_items["ids"])
-    print(f"Number of existing documents in DB: {len(existing_ids)}")
+    existing_items = db.get(include = [])
+    existing_ids = existing_items["ids"]
+    print(f"Number of existing documents in DB :{len(existing_items)}")
     
     new_chunks = []
     
@@ -90,24 +97,21 @@ def add_to_chroma(chunks: list[Document]):
             new_chunks.append(chunk)
     
     if len(new_chunks):
-        print(f"Adding new docs: {len(new_chunks)}")
-        new_chunk_ids = [chunk.metadata["id"] for chunk in new_chunks]    
-        db.add_documents(new_chunks, ids=new_chunk_ids)
-        print("Documents added successfully")
+        print(f"Adding new docs : {len(new_chunks)}")
+        new_chunk_ids =[chunk.metadata["id"] for chunk in new_chunks]    
+        db.add_documents(new_chunks , ids = new_chunk_ids)
+    
     else:
         print("No new docs to add")
     
-    return db
-
 def clear_database():
     if os.path.exists(CHROMA_PATH):
         shutil.rmtree(CHROMA_PATH)
         print("Database cleared")
 
-def query_rag(query_text: str):
-    db = Chroma(persist_directory=CHROMA_PATH, embedding_function=get_embedding_function())
+def query_rag(query_text:str):
+    db = Chroma(persist_directory=CHROMA_PATH , embedding_function=get_embedding_function())
     
-    # Check if database has documents
     try:
         total_docs = len(db.get()['ids'])
         if total_docs == 0:
@@ -115,25 +119,25 @@ def query_rag(query_text: str):
     except Exception as e:
         return f"Error accessing database: {str(e)}"
     
-    results = db.similarity_search_with_score(query=query_text, k=5)
     
-    if not results:
-        return "No relevant documents found."
+    results = db.similarity_search_with_score(query=query_text,k=5)
 
-    context_text = "\n\n--\n\n".join([doc.page_content for doc, _score in results])
+    context_text = "\n\n--\n\n".join([doc.page_content for doc , _score in results])
     prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
-    prompt = prompt_template.format(context=context_text, question=query_text)
+    prompt = prompt_template.format(context = context_text, question = query_text)
     
-    model = OllamaLLM(model="llama3.2")  # Updated class
+    model = OllamaLLM(model="llama3.2")
     response_text = model.invoke(prompt)
     
-    sources = [doc.metadata.get("id", None) for doc, _score in results]
-    formatted_response = f"Response: {response_text}\nSources: {sources}"
+    sources = [doc.metadata.get("id",None) for doc , _score in results]
+    formatted_reponses = f"Respose : {response_text}\nSources : {sources}"
     
-    print(formatted_response)
+    #print(formatted_reponses)
     return response_text
 
+
 def main():
+
     # Load documents
     pdf_docs = load_docs_pdf(PDF_DIRECTORY)
     print(f"Loaded {len(pdf_docs)} documents")
@@ -144,27 +148,28 @@ def main():
 
     print("Docs fetched successfully")
     
-    # Split documents into chunks
     chunks = split_docs(pdf_docs)
     print(f"Generated {len(chunks)} chunks")
-    
-    # Add chunks to database
+
     print("Adding documents to ChromaDB...")
     add_to_chroma(chunks)
-    
-    # Interactive query loop
-    print("\nWelcome to a wonderland for curiosities 😍")
+
+    first_start = True
+
     while True:
-        
+        if first_start == True:
+            print("\nWelcome to a wonderland for curiosities 😍\n")
+            first_start = False
+            
         query = input("Ask away (press q to quit): ")
+        
         if query.lower() == "q":
-            print("Exiting: Sorry to see you go 😭😭")
+            print("Exiting : Sorry to see you go 😭😭")
             break
         
-        if query.strip():  # Only process non-empty queries
-            query_rag(query_text=query)
+        if query.strip():
+            print(query_rag(query_text=query))
         else:
-            print("Please enter a valid question.")
-
-if __name__ == "__main__":
-    main()
+            print("Please enter a valid question 🥹🥺:")
+            
+main()
