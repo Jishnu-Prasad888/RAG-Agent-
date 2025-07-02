@@ -1,0 +1,5 @@
+data/
+venv/
+CHROMA_DB/
+.pynb_checkpoints
+data.json
