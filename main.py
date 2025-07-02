@@ -160,9 +160,9 @@ def main():
         if first_start == True:
             print("\nWelcome to a wonderland for curiosities 😍\n")
             first_start = False
-            
-        query = input("Ask away (press q to quit): ")
-        
+           
+        query = input("Ansk away !!! (press q to quit) :")
+ 
         if query.lower() == "q":
             print("Exiting : Sorry to see you go 😭😭")
             break
@@ -171,5 +171,38 @@ def main():
             print(query_rag(query_text=query))
         else:
             print("Please enter a valid question 🥹🥺:")
-            
-main()
+
+def api(queryarg):
+
+    # Load documents
+    pdf_docs = load_docs_pdf(PDF_DIRECTORY)
+    print(f"Loaded {len(pdf_docs)} documents")
+
+    if not pdf_docs:
+        print("No documents loaded. Please check your PDF directory.")
+        return
+
+    print("Docs fetched successfully")
+    
+    chunks = split_docs(pdf_docs)
+    print(f"Generated {len(chunks)} chunks")
+
+    print("Adding documents to ChromaDB...")
+    add_to_chroma(chunks)
+    
+    print("\nWelcome to a wonderland for curiosities 😍\n")       
+    
+    query = queryarg
+
+    if query.lower() == "q":
+        return("Exiting : Sorry to see you go 😭😭")
+        exit()
+    
+    if query.strip():
+        return(query_rag(query_text=query))
+    else:
+        return("Please enter a valid question 🥹🥺:")
+        
+
+if __name__ == "__main__":          
+    main()
